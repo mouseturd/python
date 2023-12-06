@@ -1,0 +1,89 @@
+import os
+from xml.etree import ElementTree as ET
+
+def transform_kml(input_filepath, output_filepath):
+    # Parse the exported KML
+    tree = ET.parse(input_filepath)
+    root = tree.getroot()
+
+    # Define namespaces
+    ns = {
+        '': "http://www.opengis.net/kml/2.2"
+    }
+    ET.register_namespace('', ns[''])
+
+    # Update the Document properties
+    document = root.find('Document', ns)
+    document.attrib['id'] = "sample_territories"
+    document.attrib['xsi:schemaLocation'] = "http://www.opengis.net/kml/2.2 http://schemas.opengis.net/kml/2.2.0/ogckml22.xsd http://www.google.com/kml/ext/2.2 http://code.google.com/apis/kml/schema/kml22gx.xsd"
+    name_tag = document.find('name', ns)
+    simpledata_name = document.find(".//SimpleData[@name='Name']", ns)
+    
+    if name_tag is not None and simpledata_name is not None:
+        name_tag.text = simpledata_name.text
+    elif simpledata_name is not None:
+        name_tag = ET.SubElement(document, 'name')
+        name_tag.text = simpledata_name.text
+
+    # Add style to the Document
+    style_element = ET.fromstring('''
+    <Style id="PolyStyle00" xmlns="http://www.opengis.net/kml/2.2">
+        <LabelStyle>
+            <color>00000000</color>
+            <scale>0</scale>
+        </LabelStyle>
+        <LineStyle>
+            <color>ffff7000</color>
+            <width>0.4</width>
+        </LineStyle>
+        <PolyStyle>
+            <color>00ffffff</color>
+        </PolyStyle>
+    </Style>
+    ''')
+    document.insert(2, style_element)
+
+# Transform Placemark
+    placemark = document.find('Placemark', ns)
+    if placemark is not None:
+        placemark.attrib['id'] = "ID_00001"
+        
+        style_element = placemark.find('Style', ns)
+        if style_element is not None:
+            style_element.clear()  # Remove existing style if it exists
+
+        style_url = ET.SubElement(placemark, 'styleUrl')
+        style_url.text = "#PolyStyle00"
+        multi_geometry = ET.SubElement(placemark, 'MultiGeometry')
+        polygon = placemark.find('Polygon', ns)
+        if polygon is not None:
+            placemark.remove(polygon)
+            multi_geometry.append(polygon)
+
+        # Remove ExtendedData from Placemark
+        extended_data = placemark.find('ExtendedData', ns)
+        if extended_data is not None:
+            placemark.remove(extended_data)
+
+        # Remove schema from Document
+        for elem in document.findall('Schema', ns):
+            document.remove(elem)
+
+    # Save the transformed KML with XML declaration
+    tree.write(output_filepath, encoding="utf-8", xml_declaration=True)
+
+def transform_all_files_in_directory(input_directory, output_directory):
+    for file in os.listdir(input_directory):
+        if file.endswith('.kml'):
+            input_filepath = os.path.join(input_directory, file)
+            # Prepend '2_' to the filename
+            output_filename = '2_' + file
+            output_filepath = os.path.join(output_directory, output_filename)
+            transform_kml(input_filepath, output_filepath)
+
+# Define input and output directories
+input_directory = r"C:\convert\old"
+output_directory = r"C:\convert\new"
+
+# Use the function
+transform_all_files_in_directory(input_directory, output_directory)
