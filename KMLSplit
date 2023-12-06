@@ -1,0 +1,36 @@
+from xml.dom import minidom
+import simplekml
+
+# Prompt user to enter the file name
+file_name = input("Enter the KML file name (including path): ")
+
+# Parse the original KML file
+xmldoc = minidom.parse(file_name)
+placemarks = xmldoc.getElementsByTagName("Placemark")
+
+# Iterate over each Placemark and create a separate KML file
+for placemark in placemarks:
+    kml = simplekml.Kml()
+
+    # Extract the name from <SimpleData name="Name">
+    simpleData_elements = placemark.getElementsByTagName("SimpleData")
+    gridname = None
+    for element in simpleData_elements:
+        if element.getAttribute("name") == "Name":
+            gridname = element.firstChild.data
+            break
+
+    if not gridname:
+        continue  # Skip this placemark if there is no name
+
+    # Extracting coordinates from the <Polygon> tag
+    polygon = placemark.getElementsByTagName("Polygon")[0]
+    coordinates = polygon.getElementsByTagName("coordinates")[0].firstChild.data
+    coords_list = coordinates.strip().split(" ")
+
+    # Create a polygon in the new KML object
+    pol = kml.newpolygon(name=gridname)
+    pol.outerboundaryis = [tuple(map(float, coord.split(','))) for coord in coords_list]
+
+    # Save the KML file with the name of the placemark
+    kml.save(f'C:\\convert\\kmlsplit\\{gridname}.kml')
